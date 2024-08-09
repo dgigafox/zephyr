@@ -1,9 +1,12 @@
 defmodule Zephyr.RelationTuple do
+  @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
   @subject_key_type Application.compile_env(:zephyr, :subject_key_type, :integer)
   @object_key_type Application.compile_env(:zephyr, :object_key_type, :integer)
+
+  @type t :: %__MODULE__{}
 
   schema "zephyr_relations" do
     field(:subject_namespace, :string)

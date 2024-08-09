@@ -17,7 +17,7 @@ defmodule Zephyr.Definition do
   alias Zephyr.Helpers
 
   defmacro definition(name, do: block) do
-    module = Helpers.write_definition_module(name)
+    module = Helpers.get_definition(name)
 
     quote do
       defmodule unquote(module) do
@@ -28,7 +28,7 @@ defmodule Zephyr.Definition do
   end
 
   defmacro definition(name) do
-    module = Helpers.write_definition_module(name)
+    module = Helpers.get_definition(name)
 
     quote do
       defmodule unquote(module) do

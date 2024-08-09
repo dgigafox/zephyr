@@ -6,8 +6,6 @@ defmodule Zephyr.QueryBuilder do
   alias Zephyr.RelationTuple
 
   def read_query(object, relation) do
-    # source = schema.__schema__(:source)
-
     {initial_query, cte_name} =
       case object do
         %Ecto.Query{from: %{source: {table, _}}} = query ->
@@ -22,7 +20,7 @@ defmodule Zephyr.QueryBuilder do
           {query, "#{table}_#{relation}"}
 
         object ->
-          source = object.table
+          source = object.__struct__.__schema__(:source)
 
           query =
             RelationTuple

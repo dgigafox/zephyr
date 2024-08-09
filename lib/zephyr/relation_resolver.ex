@@ -54,10 +54,10 @@ defmodule Zephyr.RelationResolver do
   end
 
   defp get_definition_module_from_relation({:>, [relation, _]}) do
-    Helpers.write_definition_module(relation)
+    Helpers.get_definition(relation)
   end
 
   defp get_definition_module_from_relation(relation) do
-    Helpers.write_definition_module(relation)
+    Helpers.get_definition(relation)
   end
 end

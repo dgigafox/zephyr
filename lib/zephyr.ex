@@ -8,7 +8,28 @@ defmodule Zephyr do
   alias Zephyr.RelationResolver
   alias Zephyr.RelationTuple
 
-  @type relation_tuple :: {namespace :: String.t(), key :: any(), predicate :: String.t()}
+  @type subject :: {namespace :: String.t(), key :: any(), predicate :: String.t()}
+  @type object :: {namespace :: String.t(), key :: any(), predicate :: String.t()}
+
+  @doc """
+  List subjects who has relation to the object
+  """
+  @spec read(
+          object :: Ecto.Schema.t(),
+          relation :: String.t(),
+          repo_opts :: Keyword.t()
+        ) :: [subject()]
+  def read(object, relation, repo_opts \\ []) do
+    object_source = object.__struct__.__schema__(:source)
+    {repo, repo_opts} = fetch_repo_opts(repo_opts)
+
+    object_source
+    |> Helpers.get_definition()
+    |> RelationResolver.resolve_relation(String.to_atom(relation))
+    |> QueryBuilder.build_query(object)
+    |> repo.all(repo_opts)
+    |> Enum.map(&{&1.subject_namespace, &1.subject_key, &1.subject_predicate})
+  end
 
   @doc """
   Checks if the given subject has access to the given object based on the given relation
@@ -17,7 +38,7 @@ defmodule Zephyr do
           object :: Ecto.Schema.t(),
           relation :: String.t(),
           subject :: Ecto.Schema.t(),
-          opts :: Keyword.t()
+          repo_opts :: Keyword.t()
         ) ::
           boolean()
   def check(object, relation, subject, repo_opts \\ []) do
@@ -37,7 +58,11 @@ defmodule Zephyr do
   @doc """
   Inserts a new relation between the given subject and object
   """
-  @spec write(subject :: relation_tuple(), object :: relation_tuple()) ::
+  @spec write(
+          subject :: subject(),
+          object :: object(),
+          repo_opts :: Keyword.t()
+        ) ::
           {:ok, Relation.t()} | {:error, Ecto.Changeset.t()}
   def write(subject, object, repo_opts \\ []) do
     {repo, repo_opts} = fetch_repo_opts(repo_opts)
@@ -50,7 +75,12 @@ defmodule Zephyr do
   @doc """
   Similar to write/2 but raises an error if the relation could not be inserted
   """
-  @spec write!(subject :: relation_tuple(), object :: relation_tuple()) :: Relation.t()
+  @spec write!(
+          subject :: subject(),
+          object :: object(),
+          repo_opts :: Keyword.t()
+        ) ::
+          Relation.t()
   def write!(subject, object, repo_opts \\ []) do
     {repo, repo_opts} = fetch_repo_opts(repo_opts)
 

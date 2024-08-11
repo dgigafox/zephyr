@@ -5,12 +5,12 @@ defmodule Zephyr.Migrations do
   @doc """
   Migrates storage up to the latest version.
   """
-  @callback up(Keyword.t()) :: :ok
+  @callback up(Keyword.t()) :: any()
 
   @doc """
   Migrates storage down to the previous version.
   """
-  @callback down(Keyword.t()) :: :ok
+  @callback down(Keyword.t()) :: any()
 
   def up(opts \\ []) when is_list(opts) do
     migrator().up(opts)

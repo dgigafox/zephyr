@@ -28,7 +28,7 @@ defmodule Zephyr.QueryBuilder do
             |> where(object_namespace: ^source)
             |> where(object_predicate: ^relation)
 
-          {query, "#{object.table}_#{relation}"}
+          {query, "#{source}_#{relation}"}
       end
 
     recursion_query =

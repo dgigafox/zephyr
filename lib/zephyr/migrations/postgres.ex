@@ -13,6 +13,7 @@ defmodule Zephyr.Migrations.Postgres do
       |> Keyword.put_new(:prefix, "public")
       |> Keyword.put_new(:subject_key_type, @subject_key_type)
       |> Keyword.put_new(:object_key_type, @object_key_type)
+      |> Map.new()
 
     create table(:zephyr_relations, prefix: opts.prefix) do
       add(:subject_namespace, :string)

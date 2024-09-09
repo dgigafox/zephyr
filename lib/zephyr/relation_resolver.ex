@@ -4,57 +4,37 @@ defmodule Zephyr.RelationResolver do
   """
   alias Zephyr.Helpers
 
-  @spec resolve_relation(module(), atom()) :: any()
-  def resolve_relation(definition_module, relation) do
-    definition_module.relation(relation)
-    |> do_resolve_relation(definition_module, relation)
+  def run(definition_module, permission) do
+    (definition_module.permission(permission) || raise("Permission named #{permission} not found"))
+    |> do_run(%{module: definition_module, permission: permission})
   end
 
-  defp do_resolve_relation({:+, [left, right]}, module, relation) do
-    {:+,
-     [
-       do_resolve_relation(left, module, relation),
-       do_resolve_relation(right, module, relation)
-     ]}
+  defp do_run({ops, [left, right]}, state) when ops in [:+, :-, :&&] do
+    {ops, [do_run(left, state), do_run(right, state)]}
   end
 
-  defp do_resolve_relation({:-, [left, right]}, module, relation) do
-    {:-,
-     [
-       do_resolve_relation(left, module, relation),
-       do_resolve_relation(right, module, relation)
-     ]}
+  defp do_run({:>, [definition, permission_or_relation]}, _state) do
+    module = get_definition_module_from_relation(definition)
+    run(module, permission_or_relation)
   end
 
-  defp do_resolve_relation({:&&, [left, right]}, module, relation) do
-    {:&&,
-     [
-       do_resolve_relation(left, module, relation),
-       do_resolve_relation(right, module, relation)
-     ]}
+  defp do_run(relation_or_permission, %{module: module} = state)
+       when is_atom(relation_or_permission) do
+    get_permission_or_relation(module, relation_or_permission)
+    |> do_run(state)
   end
 
-  defp do_resolve_relation({:>, [_, nil]}, _module, relation) do
+  defp do_run({:permission, _permission, expr}, state) do
+    do_run(expr, state)
+  end
+
+  defp do_run({:relation, relation, _expr}, _state) do
     relation
   end
 
-  defp do_resolve_relation({:>, [left, right]}, module, _relation) do
-    relation = module.relation(left)
-    module = get_definition_module_from_relation(relation)
-    {:>, [left, resolve_relation(module, right)]}
-  end
-
-  defp do_resolve_relation(:_this, _module, relation) do
-    relation
-  end
-
-  defp do_resolve_relation(relation, module, _) do
-    module.relation(relation)
-    |> do_resolve_relation(module, relation)
-  end
-
-  defp get_definition_module_from_relation({:>, [relation, _]}) do
-    Helpers.get_definition(relation)
+  defp get_permission_or_relation(module, permission_or_relation) do
+    module.permission(permission_or_relation) || module.relation(permission_or_relation) ||
+      raise "Permission or relation named #{permission_or_relation} not found"
   end
 
   defp get_definition_module_from_relation(relation) do

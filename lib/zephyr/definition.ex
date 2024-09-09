@@ -41,27 +41,43 @@ defmodule Zephyr.Definition do
     define_relation(relation_name, expr)
   end
 
-  defp define_relation(relation_name, relation) when is_atom(relation) do
+  # defp define_relation(relation_name, relation) when is_atom(relation) do
+  #   quote do
+  #     def relation(unquote(relation_name)) do
+  #       unquote(Zephyr.Operations.>(relation, nil))
+  #     end
+  #   end
+  # end
+
+  defp define_relation(name, expr) do
     quote do
-      def relation(unquote(relation_name)) do
-        unquote(Zephyr.Operations.>(relation, nil))
+      def relation(unquote(name)) do
+        {:relation, unquote(name), unquote(expr)}
       end
     end
   end
 
-  defp define_relation(relation_name, expr) do
+  defmacro permission(name, expr) do
     quote do
-      def relation(unquote(relation_name)) do
-        unquote(expr)
+      def permission(unquote(name)) do
+        {:permission, unquote(name), unquote(expr)}
       end
     end
   end
 
   defmacro __using__(_opts) do
     quote do
+      @before_compile Zephyr.Definition
       import Zephyr.Definition
       import Kernel, except: [+: 2, -: 2, >: 2, &&: 2]
       import Zephyr.Operations
+    end
+  end
+
+  defmacro __before_compile__(_env) do
+    quote do
+      def relation(_name), do: nil
+      def permission(_name), do: nil
     end
   end
 end

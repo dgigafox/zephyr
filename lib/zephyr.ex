@@ -8,24 +8,41 @@ defmodule Zephyr do
   alias Zephyr.RelationResolver
   alias Zephyr.RelationTuple
 
-  @type subject :: {namespace :: String.t(), key :: any(), predicate :: String.t()}
-  @type object :: {namespace :: String.t(), key :: any(), predicate :: String.t()}
+  @type userset :: {namespace :: String.t(), object_id :: any(), relation :: String.t()}
 
   @doc """
-  List subjects who has relation to the object
+  List relation tuples who has relation to the object. Depends only on the contents
+  of the relation tuples and do not reflect the defined rules.
   """
   @spec read(
           object :: Ecto.Schema.t(),
           relation :: String.t(),
           repo_opts :: Keyword.t()
-        ) :: [subject()]
+        ) :: [RelationTuple.t()]
   def read(object, relation, repo_opts \\ []) do
-    object_source = object.__struct__.__schema__(:source)
+    {repo, repo_opts} = fetch_repo_opts(repo_opts)
+
+    object
+    |> QueryBuilder.read_query(relation)
+    |> repo.all(repo_opts)
+  end
+
+  @doc """
+  Returns the effective userset given an object and relation. Unlike `read/3`, this follows
+  the defined rules.
+  """
+  @spec extend(
+          object :: Ecto.Schema.t(),
+          relation :: String.t(),
+          repo_opts :: Keyword.t()
+        ) :: [userset()]
+  def extend(object, relation, repo_opts \\ []) do
+    object_source = Ecto.get_meta(object, :source)
     {repo, repo_opts} = fetch_repo_opts(repo_opts)
 
     object_source
     |> Helpers.get_definition()
-    |> RelationResolver.resolve_relation(String.to_atom(relation))
+    |> RelationResolver.run(String.to_atom(relation))
     |> QueryBuilder.build_query(object)
     |> repo.all(repo_opts)
     |> Enum.map(&{&1.subject_namespace, &1.subject_key, &1.subject_predicate})
@@ -42,14 +59,17 @@ defmodule Zephyr do
         ) ::
           boolean()
   def check(object, relation, subject, repo_opts \\ []) do
-    object_source = object.__struct__.__schema__(:source)
-    subject_source = subject.__struct__.__schema__(:source)
+    object_source = Ecto.get_meta(object, :source)
+    subject_source = Ecto.get_meta(subject, :source)
     {repo, repo_opts} = fetch_repo_opts(repo_opts)
+    IO.inspect(binding())
 
     object_source
     |> Helpers.get_definition()
-    |> RelationResolver.resolve_relation(String.to_atom(relation))
+    |> RelationResolver.run(String.to_atom(relation))
+    |> IO.inspect(label: "RELATION")
     |> QueryBuilder.build_query(object)
+    |> IO.inspect(label: "QUERY")
     |> repo.all(repo_opts)
     |> Enum.map(&{&1.subject_namespace, &1.subject_key})
     |> Enum.member?({subject_source, subject.id})
@@ -59,8 +79,8 @@ defmodule Zephyr do
   Inserts a new relation between the given subject and object
   """
   @spec write(
-          subject :: subject(),
-          object :: object(),
+          subject :: userset(),
+          object :: userset(),
           repo_opts :: Keyword.t()
         ) ::
           {:ok, Relation.t()} | {:error, Ecto.Changeset.t()}
@@ -76,8 +96,8 @@ defmodule Zephyr do
   Similar to write/2 but raises an error if the relation could not be inserted
   """
   @spec write!(
-          subject :: subject(),
-          object :: object(),
+          subject :: userset(),
+          object :: userset(),
           repo_opts :: Keyword.t()
         ) ::
           Relation.t()

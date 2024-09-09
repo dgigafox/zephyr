@@ -20,7 +20,7 @@ defmodule Zephyr.QueryBuilder do
           {query, "#{table}_#{relation}"}
 
         object ->
-          source = object.__struct__.__schema__(:source)
+          source = Ecto.get_meta(object, :source)
 
           query =
             RelationTuple
@@ -45,7 +45,6 @@ defmodule Zephyr.QueryBuilder do
     {cte_name, RelationTuple}
     |> recursive_ctes(true)
     |> with_cte(^cte_name, as: ^read_query)
-    |> select([:subject_key, :subject_namespace, :subject_predicate])
   end
 
   def build_query(relations, object) do
@@ -81,7 +80,10 @@ defmodule Zephyr.QueryBuilder do
   end
 
   defp do_build_query(object, relation) when is_atom(relation) do
-    query = read_query(object, "#{relation}")
+    query =
+      object
+      |> read_query("#{relation}")
+      |> select([:subject_key, :subject_namespace, :subject_predicate])
 
     do_build_query(object, query)
   end

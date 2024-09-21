@@ -3,9 +3,11 @@ defmodule Zephyr.QueryBuilder do
   Traverse the resolved relations and build the query.
   """
   import Ecto.Query
+  alias Zephyr.Node
+  alias Zephyr.QueryParams
   alias Zephyr.RelationTuple
 
-  def read_query(object, relation) do
+  def read_query(object, %QueryParams{} = params) do
     {initial_query, cte_name} =
       case object do
         %Ecto.Query{from: %{source: {table, _}}} = query ->
@@ -15,20 +17,18 @@ defmodule Zephyr.QueryBuilder do
             RelationTuple
             |> where([r], r.object_key in subquery(query |> select([:subject_key])))
             |> where([r], r.object_namespace in subquery(query |> select([:subject_namespace])))
-            |> where(object_predicate: ^relation)
+            |> where(object_predicate: ^params.object_predicate)
 
-          {query, "#{table}_#{relation}"}
+          {query, "#{table}_#{params.object_predicate}"}
 
-        object ->
-          source = Ecto.get_meta(object, :source)
-
+        _object ->
           query =
             RelationTuple
-            |> where(object_key: ^object.id)
-            |> where(object_namespace: ^source)
-            |> where(object_predicate: ^relation)
+            |> where(object_key: ^params.object_key)
+            |> where(object_namespace: ^params.object_namespace)
+            |> where(object_predicate: ^params.object_predicate)
 
-          {query, "#{source}_#{relation}"}
+          {query, "#{params.object_namespace}_#{params.object_predicate}"}
       end
 
     recursion_query =
@@ -51,44 +51,46 @@ defmodule Zephyr.QueryBuilder do
     do_build_query(object, relations)
   end
 
-  defp do_build_query(object, {:+, [relation1, relation2]}) do
-    query1 = do_build_query(object, relation1)
-    query2 = do_build_query(object, relation2)
+  defp do_build_query(object, {ops, [node1, node2]}) when ops in [:+, :-, :&&] do
+    query1 = do_build_query(object, node1)
+    query2 = do_build_query(object, node2)
 
-    union_all(query1, ^query2)
+    case ops do
+      :+ -> union_all(query1, ^query2)
+      :- -> except_all(query1, ^query2)
+      :&& -> from(q in subquery(query1), intersect: ^query2, select: q)
+    end
   end
 
-  defp do_build_query(object, {:>, [relation1, relation2]}) do
-    base = do_build_query(object, relation1)
-    query = do_build_query(base, relation2)
+  defp do_build_query(object, {:>, [node1, node2]}) do
+    base = do_build_query(object, node1)
+    query = do_build_query(base, node2)
 
     query
   end
 
-  defp do_build_query(object, {:-, [relation1, relation2]}) do
-    query1 = do_build_query(object, relation1)
-    query2 = do_build_query(object, relation2)
-
-    except_all(query1, ^query2)
-  end
-
-  defp do_build_query(object, {:&&, [relation1, relation2]}) do
-    query1 = do_build_query(object, relation1)
-    query2 = do_build_query(object, relation2)
-
-    from(q in subquery(query1), intersect: ^query2, select: q)
-  end
-
-  defp do_build_query(object, relation) when is_atom(relation) do
+  defp do_build_query(%Ecto.Query{} = object, %Node{} = node) do
     query =
       object
-      |> read_query("#{relation}")
-      |> select([:subject_key, :subject_namespace, :subject_predicate])
+      |> read_query(%QueryParams{object_predicate: "#{node.name}"})
+
+    do_build_query(object, query)
+  end
+
+  defp do_build_query(object, %Node{} = node) do
+    query =
+      object
+      |> read_query(%QueryParams{
+        object_namespace: Ecto.get_meta(object, :source),
+        object_key: object.id,
+        object_predicate: "#{node.name}"
+      })
 
     do_build_query(object, query)
   end
 
   defp do_build_query(_, %Ecto.Query{} = query) do
     query
+    |> select([:subject_key, :subject_namespace, :subject_predicate])
   end
 end

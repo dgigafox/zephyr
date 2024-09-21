@@ -15,6 +15,7 @@ defmodule Zephyr.Definition do
   ```
   """
   alias Zephyr.Helpers
+  alias Zephyr.Node
 
   defmacro definition(name, do: block) do
     module = Helpers.get_definition(name)
@@ -52,7 +53,12 @@ defmodule Zephyr.Definition do
   defp define_relation(name, expr) do
     quote do
       def relation(unquote(name)) do
-        {:relation, unquote(name), unquote(expr)}
+        %Node{
+          module: __MODULE__,
+          type: :relation,
+          name: unquote(name),
+          expr: unquote(expr)
+        }
       end
     end
   end
@@ -60,7 +66,12 @@ defmodule Zephyr.Definition do
   defmacro permission(name, expr) do
     quote do
       def permission(unquote(name)) do
-        {:permission, unquote(name), unquote(expr)}
+        %Node{
+          module: __MODULE__,
+          type: :permission,
+          name: unquote(name),
+          expr: unquote(expr)
+        }
       end
     end
   end

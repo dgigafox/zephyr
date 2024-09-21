@@ -62,14 +62,11 @@ defmodule Zephyr do
     object_source = Ecto.get_meta(object, :source)
     subject_source = Ecto.get_meta(subject, :source)
     {repo, repo_opts} = fetch_repo_opts(repo_opts)
-    IO.inspect(binding())
 
     object_source
     |> Helpers.get_definition()
     |> RelationResolver.run(String.to_atom(relation))
-    |> IO.inspect(label: "RELATION")
     |> QueryBuilder.build_query(object)
-    |> IO.inspect(label: "QUERY")
     |> repo.all(repo_opts)
     |> Enum.map(&{&1.subject_namespace, &1.subject_key})
     |> Enum.member?({subject_source, subject.id})

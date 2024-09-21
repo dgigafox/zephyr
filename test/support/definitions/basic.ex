@@ -3,12 +3,12 @@ import Zephyr.Definition
 definition(:basic_users)
 
 definition :basic_groups do
-  relation(:member, [:user, :basic_groups > :member])
+  relation(:member, :basic_users)
 end
 
 definition :basic_documents do
-  relation(:writer, [:user, :basic_groups > :member])
-  relation(:reader, [:user, :basic_groups > :member])
+  relation(:writer, :basic_users + (:basic_groups > :member))
+  relation(:reader, :basic_users + (:basic_groups > :member))
   permission(:write, :writer)
   permission(:read, :reader + :write)
 end

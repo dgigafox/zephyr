@@ -20,10 +20,17 @@ defmodule Zephyr.BasicRelationsTest do
     :ok
   end
 
-  test "user:somegal can read someresource" do
-    subject = build_dummy_schema("basic_users", "somegal")
+  test "check/3" do
     object = build_dummy_schema("basic_documents", "someresource")
 
-    assert Zephyr.check(object, "read", subject)
+    somegal = build_dummy_schema("basic_users", "somegal")
+    assert Zephyr.check(object, "read", somegal)
+
+    anotherguy = build_dummy_schema("basic_users", "anotherguy")
+    assert Zephyr.check(object, "read", anotherguy)
+
+    assert Zephyr.check(object, "write", anotherguy)
+
+    refute Zephyr.check(object, "write", somegal)
   end
 end

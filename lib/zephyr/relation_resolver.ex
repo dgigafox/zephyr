@@ -10,16 +10,9 @@ defmodule Zephyr.RelationResolver do
     |> do_run()
   end
 
-  # Leaf
-  defp do_run(%Node{namespace: subject} = node) when not is_nil(subject) do
-    node
-  end
-
   # Relation
-  defp do_run(%Node{type: :relation, expr: item} = node) when is_atom(item) do
+  defp do_run(%Node{type: :relation} = node) do
     node
-    |> get_relation_or_permission(item)
-    |> do_run()
   end
 
   # Permission
@@ -31,28 +24,28 @@ defmodule Zephyr.RelationResolver do
 
   # Operations
   defp do_run(%Node{expr: {ops, [left, right]}} = node) when ops in [:+, :-, :&&] do
-    # left = :gm_users
-    # right = {:>, [:gm_groups, :membership]}
     {ops, [do_run(%{node | expr: left}), do_run(%{node | expr: right})]}
   end
 
   defp do_run(%Node{expr: {:>, [left, right]}} = node) do
-    module = get_definition(left)
+    left = node.module.relation(left) || raise "No relation named #{left} found"
 
-    left = %{node | type: :definition, expr: left, namespace: left}
+    definitions =
+      left
+      |> list_definitions_from_relation()
+      |> Enum.map(&get_definition/1)
+      |> Enum.map(&get_relation_or_permission(%{module: &1}, right))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&do_run/1)
+      |> build_unions()
 
-    node =
-      %{module: module}
-      |> get_relation_or_permission(right)
-      |> do_run()
-
-    {:>, [left, node]}
+    {:>, [left, definitions]}
   end
 
   # Helpers
-  defp get_relation_or_permission(%{type: :relation} = node, item) when is_atom(item) do
-    %{node | namespace: item}
-  end
+  # defp get_relation_or_permission(%{type: :relation} = node, item) when is_atom(item) do
+  #   %{node | namespace: item}
+  # end
 
   defp get_relation_or_permission(node, item) when is_atom(item) do
     module = node.module
@@ -62,4 +55,20 @@ defmodule Zephyr.RelationResolver do
   defp get_definition(item) when is_atom(item) do
     Helpers.get_definition(item)
   end
+
+  def list_definitions_from_relation(%Node{type: :relation, expr: item}) do
+    item
+    |> Enum.map(fn
+      {def, _} -> def
+      def -> def
+    end)
+  end
+
+  def build_unions([node]), do: node
+
+  def build_unions([head | tail]) do
+    {:+, [head, build_unions(tail)]}
+  end
+
+  def build_unions([a, b]), do: {:+, [a, b]}
 end

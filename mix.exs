@@ -35,7 +35,8 @@ defmodule Zephyr.MixProject do
       {:ecto_sql, "~> 3.10"},
       {:credo, "~> 1.7.7", only: [:test, :dev], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:postgrex, "~> 0.16", optional: true}
+      {:postgrex, "~> 0.16", optional: true},
+      {:libgraph, "~> 0.16.0"}
     ]
   end
 

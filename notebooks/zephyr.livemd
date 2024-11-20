@@ -1,0 +1,57 @@
+# Zephyr
+
+```elixir
+Mix.install(
+  [
+    {:zephyr, path: Path.join(__DIR__, ".."), env: :dev}
+  ],
+  config_path: :zephyr,
+  lockfile: :zephyr
+)
+```
+
+## Sample AST
+
+```elixir
+ast =
+  %Zephyr.AST{
+    entities: [
+      %Zephyr.Entity{
+        name: "basic_users",
+        relations: [],
+        permissions: []
+      },
+      %Zephyr.Entity{
+        name: "basic_groups",
+        relations: [%Zephyr.Relation{name: "member", user_types: ["basic_users"]}],
+        permissions: []
+      },
+      %Zephyr.Entity{
+        name: "basic_documents",
+        relations: [
+          %Zephyr.Relation{name: "writer", user_types: ["basic_users", "basic_groups#member"]},
+          %Zephyr.Relation{name: "reader", user_types: ["basic_users", "basic_groups#member"]}
+        ],
+        permissions: [
+          %Zephyr.Permission{name: "write", expr: "basic_documents#writer"},
+          %Zephyr.Permission{
+            name: "read",
+            expr: {:+, nil, ["basic_documents#reader", "basic_documents.write"]}
+          }
+        ]
+      }
+    ]
+  }
+```
+
+## Build a Graph from AST
+
+```elixir
+graph = Zephyr.Graph.build(ast)
+```
+
+## Build an Equation
+
+```elixir
+Zephyr.Equation.build(graph)
+```

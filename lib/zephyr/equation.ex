@@ -1,40 +1,24 @@
 defmodule Zephyr.Equation do
   @moduledoc false
   @type permission() :: atom()
+  @type permission_token() :: {:permission, map(), String.t()}
 
-  @spec build(Graph.t()) :: [{permission(), String.t()}]
-  def build(graph) do
-    list = graph |> Graph.transpose() |> Graph.topsort()
-    {:definition, entity} = List.last(list)
-    {permissions, _} = Keyword.pop_values(list, :permission)
-
-    Enum.reduce(permissions, {0, []}, fn permission, {start_index, collection} ->
-      end_index = Enum.find_index(list, &(&1 == {:permission, permission}))
-      children = Enum.slice(list, start_index..(end_index - 1))
-      equation = build_equation(entity, children)
-      {end_index, [{permission, equation} | collection]}
-    end)
+  @spec build(Graph.t(), permission_token()) :: tuple() | String.t()
+  def build(graph, permission_token) do
+    neighbors = Graph.out_neighbors(graph, permission_token)
+    do_build_equation(graph, neighbors)
   end
 
-  defp build_equation(entity, vertices) do
-    do_build_equation(vertices, entity)
+  defp do_build_equation(graph, [{:operator, _meta, operator} = token]) do
+    [left, right] = Graph.out_neighbors(graph, token)
+    {operator, do_build_equation(graph, [left]), do_build_equation(graph, [right])}
   end
 
-  defp do_build_equation([left, right, {:operator, operator} | rest], entity) do
-    left = parse(left, entity)
-    right = parse(right, entity)
-    do_build_equation([{operator, [left, right]} | rest], entity)
+  defp do_build_equation(graph, [{:permission, _meta, _permission} = token]) do
+    do_build_equation(graph, Graph.out_neighbors(graph, token))
   end
 
-  defp do_build_equation([v], entity), do: parse(v, entity)
-
-  defp parse({:relation, relation}, entity) do
-    "#{entity}##{relation}"
+  defp do_build_equation(_graph, [{:relation, _meta, relation}]) do
+    relation
   end
-
-  defp parse({:permission, permission}, entity) do
-    "#{entity}.#{permission}"
-  end
-
-  defp parse({_operator, [_left, _right]} = equation, _), do: equation
 end

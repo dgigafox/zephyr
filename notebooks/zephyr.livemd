@@ -53,5 +53,17 @@ graph = Zephyr.Graph.build(ast)
 ## Build an Equation
 
 ```elixir
-Zephyr.Equation.build(graph)
+# We need to find a way to traverse this list
+list = [
+  {:relation, %{}, "basic_groups#member"},
+  {:definition, %{}, "basic_groups"},
+  {:relation, %{}, "basic_documents#writer"},
+  {:permission, %{}, "basic_documents.write"},
+  {:relation, %{}, "basic_documents#reader"},
+  {:operator, %{id: "e3ca2e67-ac0f-4c87-aaee-3f44913a3f93"}, :+},
+  {:permission, %{}, "basic_documents.read"},
+  {:definition, %{}, "basic_documents"}
+]
+
+Zephyr.Equation.build(graph, {:permission, %{}, "basic_documents.read"})
 ```

@@ -1,5 +1,9 @@
 defmodule Zephyr.Graph do
-  @moduledoc false
+  @moduledoc """
+  Tokens are used to represent the different types of nodes in the graph:
+  `{token_type, meta, name}`
+  """
+  alias Ecto.UUID
   alias Graph.Edge
 
   @spec build(Zephyr.AST.t()) :: Graph.t()
@@ -11,20 +15,16 @@ defmodule Zephyr.Graph do
   end
 
   defp build_edges(entity) do
-    definition_token = {:definition, entity.name}
-    relations = Enum.map(entity.relations, &build_relation_edges(definition_token, &1))
+    definition_token = {:definition, %{}, entity.name}
     permissions = Enum.map(entity.permissions, &build_permission_edges(definition_token, &1))
 
-    List.flatten([relations, permissions])
-  end
-
-  defp build_relation_edges(definition_token, relation) do
-    relation_token = {:relation, relation.name}
-    Edge.new(definition_token, relation_token)
+    List.flatten(permissions)
   end
 
   defp build_permission_edges(definition_token, permission) do
-    permission_token = {:permission, permission.name}
+    {:definition, _meta, definition_name} = definition_token
+
+    permission_token = {:permission, %{}, definition_name <> "." <> permission.name}
     permission_edge = Edge.new(definition_token, permission_token)
     edges_from_expr = build_edges_from_expr(permission_token, permission.expr)
 
@@ -32,14 +32,22 @@ defmodule Zephyr.Graph do
   end
 
   defp build_edges_from_expr(permission_token, {operator, _, _} = expr) do
-    root_edge = Edge.new(permission_token, {:operator, operator})
+    root_operator_token = {:operator, %{id: UUID.generate()}, operator}
+    root_edge = Edge.new(permission_token, root_operator_token)
 
     {_ast, edges} =
       expr
       |> Macro.postwalk([], fn
-        {operator, _meta, [left, right]} = expr, [] = acc ->
-          v1 = Edge.new({:operator, operator}, left)
-          v2 = Edge.new({:operator, operator}, right)
+        # First root operator since acc is empty
+        {_operator, _meta, [left, right]} = expr, [] = acc ->
+          v1 = Edge.new(root_operator_token, left)
+          v2 = Edge.new(root_operator_token, right)
+          {expr, [v1, v2 | acc]}
+
+        {operator, _meta, [left, right]} = expr, [_ | _] = acc ->
+          operator_token = {:operator, %{id: UUID.generate()}, operator}
+          v1 = Edge.new(operator_token, left)
+          v2 = Edge.new(operator_token, right)
           {expr, [v1, v2 | acc]}
 
         other, acc ->
@@ -58,12 +66,12 @@ defmodule Zephyr.Graph do
   defp relation_to_token(string) do
     cond do
       String.contains?(string, "#") ->
-        [_definition, relation] = String.split(string, "#")
-        {:relation, relation}
+        # [_definition, relation] = String.split(string, "#")
+        {:relation, %{}, string}
 
       String.contains?(string, ".") ->
-        [_definition, permission] = String.split(string, ".")
-        {:permission, permission}
+        # [_definition, permission] = String.split(string, ".")
+        {:permission, %{}, string}
     end
   end
 end
